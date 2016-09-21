@@ -47,11 +47,16 @@ using namespace std;
 stCoRoutine_t *GetCurrCo( stCoRoutineEnv_t *env );
 struct stCoEpoll_t;
 
+/*
+一个进程或线程stCoRoutineEnv_t 
+协程运行环境 
+*/
+
 struct stCoRoutineEnv_t
 {
-	stCoRoutine_t *pCallStack[ 128 ];
+	stCoRoutine_t *pCallStack[ 128 ];  /* coroutine对应的task */
 	int iCallStackSize;
-	stCoEpoll_t *pEpoll;
+	stCoEpoll_t *pEpoll;  /* 网络IO信息 */ 
 };
 //int socket(int domain, int type, int protocol);
 void co_log_err( const char *fmt,... )
@@ -254,14 +259,21 @@ struct stCoEpoll_t
 	static const int _EPOLL_SIZE = 1024 * 10;
 
 	struct stTimeout_t *pTimeout;
-
+	// 超时coroutine 
 	struct stTimeoutItemLink_t *pstTimeoutList;
-
-	struct stTimeoutItemLink_t *pstActiveList;
+	// 活跃coroutine
+	struct stTimeoutItemLink_t *pstActiveList; 
 
 };
+
+//
 typedef void (*OnPreparePfn_t)( stTimeoutItem_t *,struct epoll_event &ev, stTimeoutItemLink_t *active );
+
+// 
 typedef void (*OnProcessPfn_t)( stTimeoutItem_t *);
+/*
+一次超时处理处理
+*/
 struct stTimeoutItem_t
 {
 
@@ -275,8 +287,8 @@ struct stTimeoutItem_t
 
 	unsigned long long ullExpireTime;
 
-	OnPreparePfn_t pfnPrepare;
-	OnProcessPfn_t pfnProcess;
+	OnPreparePfn_t pfnPrepare; /* 预处理 OnPollPreparePfn */
+	OnProcessPfn_t pfnProcess; 
 
 	void *pArg; // routine 
 	bool bTimeout;
@@ -409,6 +421,13 @@ struct stCoRoutine_t *co_create_env( stCoRoutineEnv_t * env,pfn_co_routine_t pfn
 
 	return lp;
 }
+/*
+创建一个CoRoutine
+stCoRoutine_t **ppco
+const stCoRoutineAttr_t *attr
+pfn_co_routine_t pfn
+void *arg
+*/
 int co_create( stCoRoutine_t **ppco,const stCoRoutineAttr_t *attr,pfn_co_routine_t pfn,void *arg )
 {
 	if( !co_get_curr_thread_env() ) 
@@ -430,12 +449,16 @@ void co_release( stCoRoutine_t *co )
 		free( co );
 	}
 }
+/*
+启动coroutine
+*/
 void co_resume( stCoRoutine_t *co )
 {
 	stCoRoutineEnv_t *env = co->env;
 	stCoRoutine_t *lpCurrRoutine = env->pCallStack[ env->iCallStackSize - 1 ];
 	if( !co->cStart )
 	{
+		
 		coctx_make( &co->ctx,(coctx_pfn_t)CoRoutineFunc,co,0 );
 		co->cStart = 1;
 	}
@@ -444,12 +467,15 @@ void co_resume( stCoRoutine_t *co )
 
 
 }
+/*
+coroutine 切换
+*/
 void co_yield_env( stCoRoutineEnv_t *env )
 {
 	
 	stCoRoutine_t *last = env->pCallStack[ env->iCallStackSize - 2 ];
 	stCoRoutine_t *curr = env->pCallStack[ env->iCallStackSize - 1 ];
-
+	/* 减到0不作安全判断，在哪保证*/
 	env->iCallStackSize--;
 
 	coctx_swap( &curr->ctx, &last->ctx );
@@ -485,6 +511,10 @@ struct stPoll_t : public stTimeoutItem_t
 
 
 };
+
+/*
+epoll item 
+*/
 struct stPollItem_t : public stTimeoutItem_t
 {
 	struct pollfd *pSelf;
@@ -521,6 +551,10 @@ static short EpollEvent2Poll( uint32_t events )
 }
 
 static stCoRoutineEnv_t* g_arrCoEnvPerThread[ 102400 ] = { 0 };
+
+/*
+线程初始化
+*/
 void co_init_curr_thread_env()
 {
 	pid_t pid = GetPid();	
@@ -530,7 +564,7 @@ void co_init_curr_thread_env()
 
 	env->iCallStackSize = 0;
 	struct stCoRoutine_t *self = co_create_env( env,NULL,NULL );
-	self->cIsMain = 1;
+	self->cIsMain = 1; /* 主coroutine */
 
 	coctx_init( &self->ctx );
 
@@ -570,7 +604,9 @@ void OnPollPreparePfn( stTimeoutItem_t * ap,struct epoll_event &e,stTimeoutItemL
 	}
 }
 
-
+/*
+网络IO循环
+*/
 void co_eventloop( stCoEpoll_t *ctx,pfn_co_eventloop_t pfn,void *arg )
 {
 	epoll_event *result = (epoll_event*)calloc(1, sizeof(epoll_event) * stCoEpoll_t::_EPOLL_SIZE );
@@ -680,7 +716,9 @@ stCoRoutine_t *GetCurrThreadCo( )
 }
 
 
-
+/*
+需要重点分析  
+*/
 int co_poll( stCoEpoll_t *ctx,struct pollfd fds[], nfds_t nfds, int timeout )
 {
 	
@@ -738,7 +776,7 @@ int co_poll( stCoEpoll_t *ctx,struct pollfd fds[], nfds_t nfds, int timeout )
 		{
 			ev.data.ptr = arg.pPollItems + i;
 			ev.events = PollEvent2Epoll( fds[i].events );
-
+			// 添加到epoll 
 			epoll_ctl( epfd,EPOLL_CTL_ADD, fds[i].fd, &ev );
 		}
 		//if fail,the timeout would work
@@ -753,6 +791,7 @@ int co_poll( stCoEpoll_t *ctx,struct pollfd fds[], nfds_t nfds, int timeout )
 		int fd = fds[i].fd;
 		if( fd > -1 )
 		{
+			// 从epoll中去注册 
 			epoll_ctl( epfd,EPOLL_CTL_DEL,fd,&arg.pPollItems[i].stEvent );
 		}
 	}
@@ -770,6 +809,9 @@ void SetEpoll( stCoRoutineEnv_t *env,stCoEpoll_t *ev )
 {
 	env->pEpoll = ev;
 }
+/*
+获得CoEpoll
+*/
 stCoEpoll_t *co_get_epoll_ct()
 {
 	if( !co_get_curr_thread_env() )

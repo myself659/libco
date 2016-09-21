@@ -26,10 +26,15 @@ struct stCoSpec_t
 {
 	void *value;
 };
+/*
+CoRoutine信息
+*/
 struct stCoRoutine_t
 {
 	stCoRoutineEnv_t *env;
+	/* 回调函数 */
 	pfn_co_routine_t pfn;
+	/* 回调入参  */
 	void *arg;
 	//ucontext_t ctx;
 	coctx_t ctx;

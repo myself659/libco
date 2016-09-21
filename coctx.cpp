@@ -64,14 +64,15 @@ int coctx_make( coctx_t *ctx,coctx_pfn_t pfn,const void *s,const void *s1 )
 	return 0;
 }
 #elif defined(__x86_64__)
+// 生成coctx 
 int coctx_make( coctx_t *ctx,coctx_pfn_t pfn,const void *s,const void *s1 )
 {
 	char *stack = ctx->ss_sp;
 	*stack = 0;
 
-	char *sp = stack + ctx->ss_size - 1;
+	char *sp = stack + ctx->ss_size - 1; // 栈底，向下生长 
 	sp = (char*)( ( (unsigned long)sp & -16LL ) - 8);
-
+	// 栈底向下len个字节置0，为什么加64字节? 
 	int len = sizeof(coctx_param_t) + 64;
 	memset( sp - len,0,len );
 
@@ -79,18 +80,18 @@ int coctx_make( coctx_t *ctx,coctx_pfn_t pfn,const void *s,const void *s1 )
 	ctx->s1 = s;
 	ctx->s2 = s1;
 
-	ctx->param = (coctx_param_t*)sp;
+	ctx->param = (coctx_param_t*)sp; // 从栈底开始
 	ctx->param->f = pfn;	
 	ctx->param->f_link = 0;
 	ctx->param->s1 = s;
 	ctx->param->s2 = s1;
 
 	ctx->regs[ RBX ] = stack + ctx->ss_size - 1;
-	ctx->regs[ RSP ] = (char*)(ctx->param) + 8;
-	ctx->regs[ RIP ] = (char*)pfn;
+	ctx->regs[ RSP ] = (char*)(ctx->param) + 8; 
+	ctx->regs[ RIP ] = (char*)pfn; // coroutine处理函数 
 
-	ctx->regs[ RDI ] = (char*)s;
-	ctx->regs[ RSI ] = (char*)s1;
+	ctx->regs[ RDI ] = (char*)s;  // coroutine 
+	ctx->regs[ RSI ] = (char*)s1; // pfn入参
 
 	return 0;
 }

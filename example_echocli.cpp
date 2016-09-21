@@ -205,7 +205,9 @@ int main(int argc,char *argv[])
 		for(int i=0;i<cnt;i++)
 		{
 			stCoRoutine_t *co = 0;
+			//  co_create api设计可改为返回值为stCoRoutine_t
 			co_create( &co,NULL,readwrite_routine, &endpoint);
+			// 
 			co_resume( co );
 		}
 		co_eventloop( co_get_epoll_ct(),0,0 );

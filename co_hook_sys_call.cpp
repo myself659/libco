@@ -91,6 +91,7 @@ typedef int (*pthread_rwlock_rdlock_pfn_t)(pthread_rwlock_t *rwlock);
 typedef int (*pthread_rwlock_wrlock_pfn_t)(pthread_rwlock_t *rwlock);
 typedef int (*pthread_rwlock_unlock_pfn_t)(pthread_rwlock_t *rwlock);
 
+/* 标准系统api */
 static socket_pfn_t g_sys_socket_func 	= (socket_pfn_t)dlsym(RTLD_NEXT,"socket");
 static connect_pfn_t g_sys_connect_func = (connect_pfn_t)dlsym(RTLD_NEXT,"connect");
 static close_pfn_t g_sys_close_func 	= (close_pfn_t)dlsym(RTLD_NEXT,"close");
@@ -149,7 +150,7 @@ struct rpchook_connagent_head_t
 	unsigned char    sReserved[6];
 }__attribute__((packed));
 
-
+/* 如果是初次使用hook函数，动态lib方式加载hook函数  */
 #define HOOK_SYS_FUNC(name) if( !g_sys_##name##_func ) { g_sys_##name##_func = (name##_pfn_t)dlsym(RTLD_NEXT,#name); }
 
 static inline ll64_t diff_ms(struct timeval &begin,struct timeval &end)

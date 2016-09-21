@@ -27,9 +27,13 @@ struct coctx_param_t
 	const void *s1;
 	const void *s2;
 };
+
+/*
+保存CoRoutine上下文信息 
+*/
 struct coctx_t
 {
-	void *regs[ 5 ];
+	void *regs[ 5 ]; //  coroutine切换的寄存器模拟
 
 	coctx_param_t *param;
 

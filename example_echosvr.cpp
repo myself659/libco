@@ -64,28 +64,35 @@ static void *readwrite_routine( void *arg )
 	{
 		if( -1 == co->fd )
 		{
+			/* 无效连接， 说明该coroutine没有处理连接，
+			将该coroutine入栈，以便连接建立时从g_readwrite堆栈获取  */
 			g_readwrite.push( co );
 			co_yield_ct();
 			continue;
 		}
 
 		int fd = co->fd;
+		/* 置为-1，以便处理完成继续加入g_readwrite堆栈  */
 		co->fd = -1;
 
 		for(;;)
 		{
 			struct pollfd pf = { 0 };
 			pf.fd = fd;
+			/* 如何处理epoll事件，例如对端关闭连接 */
 			pf.events = (POLLIN|POLLERR|POLLHUP);
 			co_poll( co_get_epoll_ct(),&pf,1,1000);
 
 			int ret = read( fd,buf,sizeof(buf) );
 			if( ret > 0 )
 			{
+				printf("%s\n", buf);
 				ret = write( fd,buf,ret );
 			}
+			
 			if( ret <= 0 )
 			{
+				/* 跳出循环 */
 				close( fd );
 				break;
 			}
@@ -126,16 +133,18 @@ static void *accept_routine( void * )
 			co_poll( co_get_epoll_ct(),&pf,1,1000 );
 			continue;
 		}
+		// 无可用coroutine关闭新建连接 
 		if( g_readwrite.empty() )
 		{
 			close( fd );
 			continue;
 		}
+		// 新建连接设置为非阻塞
 		SetNonBlock( fd );
-		task_t *co = g_readwrite.top();
+		task_t *co = g_readwrite.top();// 从栈中取出可用coroutine 
 		co->fd = fd;
-		g_readwrite.pop();
-		co_resume( co->co );
+		g_readwrite.pop();  // 出栈 
+		co_resume( co->co );//  启动coroutine 
 	}
 	return 0;
 }
