@@ -41,6 +41,7 @@ struct task_t
 };
 
 static stack<task_t*> g_readwrite;
+/* 侦听fd */
 static int g_listen_fd = -1;
 static int SetNonBlock(int iSock)
 {
@@ -127,10 +128,12 @@ static void *accept_routine( void * )
 		int fd = co_accept(g_listen_fd, (struct sockaddr *)&addr, &len);
 		if( fd < 0 )
 		{
+			/* 加入epoll  重复添加无影响 */
 			struct pollfd pf = { 0 };
 			pf.fd = g_listen_fd;
 			pf.events = (POLLIN|POLLERR|POLLHUP);
 			co_poll( co_get_epoll_ct(),&pf,1,1000 );
+			/* 继续等待accept  */
 			continue;
 		}
 		// 无可用coroutine关闭新建连接 
@@ -142,6 +145,7 @@ static void *accept_routine( void * )
 		// 新建连接设置为非阻塞
 		SetNonBlock( fd );
 		task_t *co = g_readwrite.top();// 从栈中取出可用coroutine 
+		// 设置task对应连接fd 
 		co->fd = fd;
 		g_readwrite.pop();  // 出栈 
 		co_resume( co->co );//  启动coroutine 

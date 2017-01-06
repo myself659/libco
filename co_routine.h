@@ -26,6 +26,7 @@
 //1.struct
 
 struct stCoRoutine_t;
+/* coroutine  Ù–‘  */
 struct stCoRoutineAttr_t
 {
 	int stack_size;

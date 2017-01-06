@@ -31,6 +31,7 @@ CoRoutine信息
 */
 struct stCoRoutine_t
 {
+	/* 共享堆栈 */
 	stCoRoutineEnv_t *env;
 	/* 回调函数 */
 	pfn_co_routine_t pfn;
@@ -42,7 +43,7 @@ struct stCoRoutine_t
 	char cEnd;
 	stCoSpec_t aSpec[1024];
 	char cIsMain;
-	char cEnableSysHook;
+	char cEnableSysHook; /* 是否开启系统调用hook， 为1表示开启 */
 
 	char sRunStack[ 1024 * 128 ];
 

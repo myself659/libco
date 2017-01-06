@@ -253,6 +253,11 @@ void inline Join( TLink*apLink,TLink *apOther )
 // ----------------------------------------------------------------------------
 struct stTimeoutItemLink_t;
 struct stTimeoutItem_t;
+
+/*
+epoll事件驱动 
+每线程一个
+*/
 struct stCoEpoll_t
 {
 	int iEpollFd;
@@ -285,13 +290,13 @@ struct stTimeoutItem_t
 	stTimeoutItem_t *pNext;
 	stTimeoutItemLink_t *pLink;
 
-	unsigned long long ullExpireTime;
+	unsigned long long ullExpireTime; /* 超时时间 */
 
 	OnPreparePfn_t pfnPrepare; /* 预处理 OnPollPreparePfn */
-	OnProcessPfn_t pfnProcess; 
+	OnProcessPfn_t pfnProcess; /* 事件处理函数处理 */
 
 	void *pArg; // routine 
-	bool bTimeout;
+	bool bTimeout; /* 是否超时，true表示已超时 */ 
 };
 struct stTimeoutItemLink_t
 {
@@ -324,6 +329,9 @@ void FreeTimeout( stTimeout_t *apTimeout )
 	free( apTimeout->pItems );
 	free ( apTimeout );
 }
+/*
+添加超时item 
+*/
 int AddTimeout( stTimeout_t *apTimeout,stTimeoutItem_t *apItem ,unsigned long long allNow )
 {
 	if( apTimeout->ullStart == 0 )
@@ -423,10 +431,10 @@ struct stCoRoutine_t *co_create_env( stCoRoutineEnv_t * env,pfn_co_routine_t pfn
 }
 /*
 创建一个CoRoutine
-stCoRoutine_t **ppco
-const stCoRoutineAttr_t *attr
-pfn_co_routine_t pfn
-void *arg
+stCoRoutine_t **ppco       		返回创建coroutine的指针的地址
+const stCoRoutineAttr_t *attr      coroutine属性
+pfn_co_routine_t pfn    			回调处理指针 
+void *arg              			回调处理参数 
 */
 int co_create( stCoRoutine_t **ppco,const stCoRoutineAttr_t *attr,pfn_co_routine_t pfn,void *arg )
 {
@@ -578,6 +586,7 @@ stCoRoutineEnv_t *co_get_curr_thread_env()
 	return g_arrCoEnvPerThread[ GetPid() ];
 }
 
+/*  事件通知处理，启动对应coroutine   */
 void OnPollProcessEvent( stTimeoutItem_t * ap )
 {
 	stCoRoutine_t *co = (stCoRoutine_t*)ap->pArg;
@@ -623,19 +632,23 @@ void co_eventloop( stCoEpoll_t *ctx,pfn_co_eventloop_t pfn,void *arg )
 
 		for(int i=0;i<ret;i++)
 		{
+			/* 获取一次事件 */
 			stTimeoutItem_t *item = (stTimeoutItem_t*)result[i].data.ptr;
 			if( item->pfnPrepare )
 			{
+				/* 如果有必要进行预处理 */
 				item->pfnPrepare( item,result[i],active );
 			}
 			else
 			{
+				/* 加入active，后面进行处理    */
 				AddTail( active,item );
 			}
 		}
 
 
 		unsigned long long now = GetTickMS();
+		/* 进行一次超时检查 */
 		TakeAllTimeout( ctx->pTimeout,now,timeout );
 
 		stTimeoutItem_t *lp = timeout->head;
@@ -645,9 +658,9 @@ void co_eventloop( stCoEpoll_t *ctx,pfn_co_eventloop_t pfn,void *arg )
 			lp->bTimeout = true;
 			lp = lp->pNext;
 		}
-
+		/* 合并事件 */
 		Join<stTimeoutItem_t,stTimeoutItemLink_t>( active,timeout );
-
+		/* 处理接收到事件 */
 		lp = active->head;
 		while( lp )
 		{
@@ -682,7 +695,7 @@ void OnCoroutineEvent( stTimeoutItem_t * ap )
 stCoEpoll_t *AllocEpoll()
 {
 	stCoEpoll_t *ctx = (stCoEpoll_t*)calloc( 1,sizeof(stCoEpoll_t) );
-
+	/* 创建epoll */
 	ctx->iEpollFd = epoll_create( stCoEpoll_t::_EPOLL_SIZE );
 	ctx->pTimeout = AllocTimeout( 60 * 1000 );
 	

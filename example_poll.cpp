@@ -37,7 +37,7 @@ using namespace std;
 
 struct task_t
 {
-	stCoRoutine_t *co;
+	stCoRoutine_t *co; /* task ¶ÔÓ¦µÄcoroutine */
 	int fd;
 	struct sockaddr_in addr;
 };
