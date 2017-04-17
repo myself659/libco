@@ -93,7 +93,7 @@ int coctx_make( coctx_t *ctx,coctx_pfn_t pfn,const void *s,const void *s1 )
 	/* 保留寄存器信息 */
 	ctx->regs[ RBX ] = stack + ctx->ss_size - 1; /* 被调用函数  */
 	ctx->regs[ RSP ] = (char*)(ctx->param) + 8; /* 用sizeof(long)代替8更好 */ 
-	ctx->regs[ RIP ] = (char*)pfn; // coroutine处理函数 
+	ctx->regs[ RIP ] = (char*)pfn; // coroutine处理函数，初始化是函数指针
 
 	ctx->regs[ RDI ] = (char*)s;  // coroutine 
 	ctx->regs[ RSI ] = (char*)s1; // pfn入参

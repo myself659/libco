@@ -57,6 +57,7 @@ static inline pid_t GetPid()
 	char **p = (char**)pthread_self();
 	return p ? *(pid_t*)(p + 18) : getpid();
 }
+/* fd个数限制 */
 static rpchook_t *g_rpchook_socket_fd[ 102400 ] = { 0 };
 
 typedef int (*socket_pfn_t)(int domain, int type, int protocol);
@@ -150,7 +151,7 @@ struct rpchook_connagent_head_t
 	unsigned char    sReserved[6];
 }__attribute__((packed));
 
-/* 如果是初次使用hook函数，动态lib方式加载hook函数  */
+/* 如果是初次使用hook函数，动态lib方式加载hook函数  获取真正的调用函数  */
 #define HOOK_SYS_FUNC(name) if( !g_sys_##name##_func ) { g_sys_##name##_func = (name##_pfn_t)dlsym(RTLD_NEXT,#name); }
 
 static inline ll64_t diff_ms(struct timeval &begin,struct timeval &end)

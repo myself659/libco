@@ -50,6 +50,7 @@ struct stCoEpoll_t;
 /*
 一个进程或线程stCoRoutineEnv_t 
 协程运行环境 
+coroutine依赖线程，来实现获取调度
 */
 
 struct stCoRoutineEnv_t
@@ -412,7 +413,7 @@ static int CoRoutineFunc( stCoRoutine_t *co,void * )
 	co->cEnd = 1;
 
 	stCoRoutineEnv_t *env = co->env;
-
+/* 主动执行切换 */
 	co_yield_env( env );
 
 	return 0;
@@ -466,7 +467,16 @@ void co_release( stCoRoutine_t *co )
 /*
 启动coroutine
 */
-/* 与golang还是有很大差距 没有channel来实现routine之间的通信  */
+/* 
+与golang还是有很大差距 没有channel来实现routine之间的通信 
+这样在应用上没有golang灵活，但是可以促进开发人员匹配模型，作更加简单的设计 
+
+没有channel怎么办?可以通过socket来实现通信  
+
+编译上也更多  
+需要部署动态lib
+
+*/
 void co_resume( stCoRoutine_t *co )
 {
 	stCoRoutineEnv_t *env = co->env;

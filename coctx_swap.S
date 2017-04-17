@@ -81,11 +81,14 @@ coctx_swap:
 	rsp：对应32位esp寄存器，保存当前堆栈栈顶指针的寄存器
 	rsp = rsp -8 
 	向下生长
+	保存rsp 
 	*/
 	leaq -8(%rsp),%rsp
 	/* 
 	callee-saved register, optionally used as frame pointer 
 	当前堆栈基地址指针的寄存器
+	保存rbp
+	入栈的寄存器在函数调用过程应该保持不变 
 	*/
 	pushq %rbp
 	/* callee save register */
@@ -101,8 +104,11 @@ coctx_swap:
 	pushq %r9
 	
 	/*  
+	前面入栈了10个寄存器参数 
 	rsp = rsp +80 
-	恢复rsp，保存到内存
+	恢复到原来的rsp值
+	这个位置是rip值
+	再加8保存调用者rsp地址
 	*/
 	leaq 80(%rsp),%rsp	
 	
@@ -113,7 +119,9 @@ coctx_swap:
 	movq %rsi,_rsi(%rdi)
 	/* sp */
 	movq (%rsp), %rcx
+	/* 为什么这个可以作为rip 前面有一个函数调用，保存到rip的地址   */
 	movq %rcx, _rip(%rdi)
+	/* rsp +8 保存我们需要的rsp地址  */
 	leaq 8(%rsp), %rcx		
 	movq %rcx, _rsp(%rdi)
 
@@ -127,12 +135,12 @@ coctx_swap:
 	
 	/* 目的rip入栈  */
 	pushq %rcx
-
+	
 	movq _rbx(%rsi),%rbx
 	movq _rdi(%rsi),%rdi
 	movq _rsi(%rsi),%rsi
 	
-	/* rsp = rsp - 80 */
+	/* rsp  = rsp  - 80   切换到rsp，恢复寄存器  */
 	leaq -80(%rsp),%rsp
 	/* 按入栈顺序逆序出栈 */
 	popq %r9
@@ -145,9 +153,9 @@ coctx_swap:
 	popq %r12
 	/* 恢复栈底 */
 	popq %rbp
-	/* 恢复原来rsp  rsp = rsp+8 */
+	/* 恢复原来rsp  rsp = rsp + 8 */
 	leaq 8(%rsp),%rsp	
-	/* 异或运算，设置EAX为0 相比较于mov更高效  */
+	/* 异或运算，设置EAX为0 相比较于mov更高效,没有返回值   */
 	xorl %eax, %eax
 	/* 返回  */
 	ret
