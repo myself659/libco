@@ -65,15 +65,19 @@ int coctx_make( coctx_t *ctx,coctx_pfn_t pfn,const void *s,const void *s1 )
 }
 #elif defined(__x86_64__)
 // 生成coctx 
+/*
+思路是用内存保护函数切换的信息  类似于调用函数返回
+*/
 int coctx_make( coctx_t *ctx,coctx_pfn_t pfn,const void *s,const void *s1 )
 {
-	char *stack = ctx->ss_sp;
+	char *stack = ctx->ss_sp; // 栈底
 	*stack = 0;
 
 	char *sp = stack + ctx->ss_size - 1; // 栈底，向下生长 
-	sp = (char*)( ( (unsigned long)sp & -16LL ) - 8);
+	sp = (char*)( ( (unsigned long)sp & -16LL ) - 8); // 16字节对齐并减8
 	// 栈底向下len个字节置0，为什么加64字节? 
 	int len = sizeof(coctx_param_t) + 64;
+	// 栈向下开辟空间 
 	memset( sp - len,0,len );
 
 	ctx->routine = pfn;
@@ -85,9 +89,10 @@ int coctx_make( coctx_t *ctx,coctx_pfn_t pfn,const void *s,const void *s1 )
 	ctx->param->f_link = 0;
 	ctx->param->s1 = s;
 	ctx->param->s2 = s1;
-
-	ctx->regs[ RBX ] = stack + ctx->ss_size - 1;
-	ctx->regs[ RSP ] = (char*)(ctx->param) + 8; 
+	
+	/* 保留寄存器信息 */
+	ctx->regs[ RBX ] = stack + ctx->ss_size - 1; /* 被调用函数  */
+	ctx->regs[ RSP ] = (char*)(ctx->param) + 8; /* 用sizeof(long)代替8更好 */ 
 	ctx->regs[ RIP ] = (char*)pfn; // coroutine处理函数 
 
 	ctx->regs[ RDI ] = (char*)s;  // coroutine 

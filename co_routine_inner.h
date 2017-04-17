@@ -39,13 +39,13 @@ struct stCoRoutine_t
 	void *arg;
 	//ucontext_t ctx;
 	coctx_t ctx;
-	char cStart;
-	char cEnd;
+	char cStart; //是否启动
+	char cEnd; // routine活干完，可以回收了 
 	stCoSpec_t aSpec[1024];
 	char cIsMain;
-	char cEnableSysHook; /* 是否开启系统调用hook， 为1表示开启 */
+	char cEnableSysHook; /* 是否开启系统调用hook， 为1表示开启  */
 
-	char sRunStack[ 1024 * 128 ];
+	char sRunStack[ 1024 * 128 ]; /* 运行堆栈 128k 关注局部变量大小控制 */
 
 };
 

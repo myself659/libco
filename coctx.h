@@ -20,10 +20,12 @@
 #define __CO_CTX_H__
 #include <stdlib.h>
 typedef int (*coctx_pfn_t)( const char *s,const char *s2 );
+
+/*  ²ÎÊý  */
 struct coctx_param_t
 {
 	coctx_pfn_t f;
-	coctx_pfn_t f_link;
+	coctx_pfn_t f_link;  /* ? */
 	const void *s1;
 	const void *s2;
 };

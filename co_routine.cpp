@@ -56,7 +56,7 @@ struct stCoRoutineEnv_t
 {
 	stCoRoutine_t *pCallStack[ 128 ];  /* coroutine对应的task */
 	int iCallStackSize;
-	stCoEpoll_t *pEpoll;  /* 网络IO信息 */ 
+	stCoEpoll_t *pEpoll;  /* 网络IO信息  需要一个epoll获取事件通知 */ 
 };
 //int socket(int domain, int type, int protocol);
 void co_log_err( const char *fmt,... )
@@ -397,12 +397,18 @@ inline void TakeAllTimeout( stTimeout_t *apTimeout,unsigned long long allNow,stT
 
 
 }
+/*
+调度routine后的执行函数，执行对应routine的回调
+再一次进行封装调用
+*/
 static int CoRoutineFunc( stCoRoutine_t *co,void * )
 {
 	if( co->pfn )
-	{
+	{	
+		/* routine执行函数 */
 		co->pfn( co->arg );
 	}
+	/* 执行完成 */
 	co->cEnd = 1;
 
 	stCoRoutineEnv_t *env = co->env;
@@ -460,6 +466,7 @@ void co_release( stCoRoutine_t *co )
 /*
 启动coroutine
 */
+/* 与golang还是有很大差距 没有channel来实现routine之间的通信  */
 void co_resume( stCoRoutine_t *co )
 {
 	stCoRoutineEnv_t *env = co->env;
@@ -470,7 +477,9 @@ void co_resume( stCoRoutine_t *co )
 		coctx_make( &co->ctx,(coctx_pfn_t)CoRoutineFunc,co,0 );
 		co->cStart = 1;
 	}
+	/* 保存coroutine */
 	env->pCallStack[ env->iCallStackSize++ ] = co;
+	/* 交换ctx */
 	coctx_swap( &(lpCurrRoutine->ctx),&(co->ctx) );
 
 
@@ -557,11 +566,15 @@ static short EpollEvent2Poll( uint32_t events )
 	if( events & EPOLLERR ) e |= POLLERR;
 	return e;
 }
-
+/* 进程pid 100k  占用静态内存区 */
 static stCoRoutineEnv_t* g_arrCoEnvPerThread[ 102400 ] = { 0 };
 
 /*
-线程初始化
+
+线程初始化  
+
+每个线程都有一个stCoRoutineEnv_t
+
 */
 void co_init_curr_thread_env()
 {
@@ -615,6 +628,7 @@ void OnPollPreparePfn( stTimeoutItem_t * ap,struct epoll_event &e,stTimeoutItemL
 
 /*
 网络IO循环
+调度coutine
 */
 void co_eventloop( stCoEpoll_t *ctx,pfn_co_eventloop_t pfn,void *arg )
 {
@@ -691,7 +705,9 @@ void OnCoroutineEvent( stTimeoutItem_t * ap )
 	co_resume( co );
 }
 
-
+/* 
+创建epoll 获得定时器与网络事件通知
+*/
 stCoEpoll_t *AllocEpoll()
 {
 	stCoEpoll_t *ctx = (stCoEpoll_t*)calloc( 1,sizeof(stCoEpoll_t) );

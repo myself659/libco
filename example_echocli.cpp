@@ -207,9 +207,10 @@ int main(int argc,char *argv[])
 			stCoRoutine_t *co = 0;
 			//  co_create api设计可改为返回值为stCoRoutine_t
 			co_create( &co,NULL,readwrite_routine, &endpoint);
-			// 
+			// 启动routine
 			co_resume( co );
 		}
+		/* 标准使用模式 在co_get_epoll_ct()创建routine环境 */
 		co_eventloop( co_get_epoll_ct(),0,0 );
 
 		exit(0);
